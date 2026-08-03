@@ -1,0 +1,51 @@
+# .gitignore
+
+# ========== Python 通用缓存 ==========
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+
+# ========== 虚拟环境（防止把几十MB的依赖传上去） ==========
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# ========== IDE 配置（PyCharm / VSCode） ==========
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ========== 日志与临时文件 ==========
+*.log
+log.txt
+*.tmp
+*.temp
+
+# ========== 本项目特定：下载的视频、分片和调试文件夹 ==========
+# 视频输出文件
+*.mp4
+*.mkv
+*.avi
+*.ts
+*.m4s
+*.m3u8
+
+# 视频缓存目录（根据你的代码，默认是 videos/）
+videos/
+
+# Debug 调试目录（里面会保存页面源码和 m3u8 结构，有时含有隐私信息）
+_debug/
+
+# 如果用户自己生成了配置文件（以备将来扩展）
+config.local.py

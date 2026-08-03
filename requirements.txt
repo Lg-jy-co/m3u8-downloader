@@ -1,0 +1,19 @@
+# requirements.txt
+
+# 核心网络请求
+requests>=2.32.4
+urllib3>=2.5.0
+aiohttp>=3.12.15
+aiofiles>=24.1.0
+
+# HTML 解析与浏览器自动化
+beautifulsoup4>=4.13.4
+lxml>=6.0.0          # 解析速度快，BeautifulSoup 依赖它
+playwright>=1.54.0   # 用于抓取动态页面
+
+# 加密与进度条
+pycryptodome>=3.23.0 # 提供 AES 解密（Crypto 库）
+tqdm>=4.67.1         # 下载进度条
+
+# 注意：安装完 playwright 后，还需在命令行执行 playwright install chromium
+# 来安装对应的浏览器内核，否则动态抓取会报错。
