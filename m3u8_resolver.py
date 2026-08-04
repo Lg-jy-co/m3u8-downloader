@@ -5,6 +5,7 @@ import logging
 import config
 import requests
 from urllib.parse import urljoin
+from utils import request_with_referer
 from debug_utils import DebugRecorder   # 类型注解
 
 # ===================== STEP 1.5 - 多层 m3u8 解析 & 清晰度选择 =====================
@@ -108,14 +109,15 @@ def choose_variant(variants: list[dict], debug: DebugRecorder | None = None) -> 
 def resolve_to_media_m3u8(start_url: str, session: requests.Session,
                           debug: DebugRecorder | None = None, max_depth: int = 5) -> tuple[str, str]:
     """
-    从可能是多层 index/master 的 m3u8 一路解析到真正的“媒体播放列表”：
+    从可能是多层 index/master 的 m3u8 一路解析到真正的”媒体播放列表”：
     - 支持标准 master：#EXT-X-STREAM-INF + 子 m3u8（带清晰度选择）
-    - 支持“index 列表式”：所有非注释行都是 .m3u8（同样可选择）
+    - 支持”index 列表式”：所有非注释行都是 .m3u8（同样可选择）
     返回 (最终媒体 m3u8 的 URL, 文本内容)
     """
     visited = set()
     cur_url = start_url
     depth = 0
+    page_url = getattr(session, '_page_url', None)
 
     while depth < max_depth and cur_url not in visited:
         visited.add(cur_url)
@@ -124,7 +126,7 @@ def resolve_to_media_m3u8(start_url: str, session: requests.Session,
             debug.note(f"解析 m3u8（第 {depth + 1} 层）：{cur_url}")
 
         try:
-            resp = session.get(cur_url, verify=False, timeout=20)
+            resp = request_with_referer(session, "GET", cur_url, page_url=page_url, verify=False, timeout=20)
             resp.raise_for_status()
         except Exception as e:
             logging.error(f"获取 m3u8 失败：{cur_url}, {e}")
@@ -203,10 +205,10 @@ def resolve_to_media_m3u8(start_url: str, session: requests.Session,
         debug.note(f"m3u8 嵌套层级过深或循环引用，返回当前：{cur_url}")
         debug.save_text("m3u8_layer_over_depth.txt", f"url={cur_url}")
     # 最后再请求一次当前 m3u8 内容
-    resp = session.get(cur_url, verify=False, timeout=20)
+    resp = request_with_referer(session, "GET", cur_url, page_url=page_url, verify=False, timeout=20)
     return cur_url, resp.text
 
-# ===================== STEP 2 - 解析媒体 m3u8（多 KEY + 片段式加密） =====================
+# ===================== STEP 2 - 解析媒体 m3u8（多 KEY + 片分段式加密） =====================
 def parse_m3u8_segments(m3u8_text: str, base_url: str, session: requests.Session):
     """
     返回 [{'url':..., 'key': bytes|None, 'iv': bytes|None, 'seq': int}, ...]
@@ -229,7 +231,8 @@ def parse_m3u8_segments(m3u8_text: str, base_url: str, session: requests.Session
         key_url = urljoin(base_url, key_uri)
         if key_url in key_cache:
             return key_cache[key_url]
-        kb = session.get(key_url, verify=False, timeout=20).content
+        page_url = getattr(session, '_page_url', None)
+        kb = request_with_referer(session, "GET", key_url, page_url=page_url, verify=False, timeout=20).content
         key_cache[key_url] = kb
         return kb
 

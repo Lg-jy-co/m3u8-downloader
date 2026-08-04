@@ -5,7 +5,7 @@ import logging
 import requests
 from bs4 import BeautifulSoup
 from playwright.async_api import async_playwright
-from utils import normalize_m3u8_url, extract_page_title
+from utils import normalize_m3u8_url, extract_page_title, request_with_referer
 from debug_utils import DebugRecorder   # 为了类型注解
 
 def extract_m3u8_from_html(html: str, page_url: str, debug: DebugRecorder | None = None) -> str | None:
@@ -77,7 +77,7 @@ async def get_m3u8_url_smart(page_url: str, session: requests.Session,
     page_title = None
 
     try:
-        res = session.get(page_url, verify=False, timeout=20)
+        res = request_with_referer(session, "GET", page_url, page_url=page_url, verify=False, timeout=20)
         status = res.status_code
         res.encoding = res.apparent_encoding
         html = res.text
@@ -89,6 +89,7 @@ async def get_m3u8_url_smart(page_url: str, session: requests.Session,
         if status != 200:
             print(f"❌ 页面访问失败：HTTP {status}")
             logging.error(f"页面访问失败：{page_url} HTTP {status}")
+            session._page_url = page_url
             return None, None
 
         # 先提标题
@@ -99,15 +100,19 @@ async def get_m3u8_url_smart(page_url: str, session: requests.Session,
         if m3u8_url:
             print("✅ HTML 中已找到 m3u8，不用执行 Playwright！")
             logging.info("HTML 中已找到 m3u8，不用执行 Playwright！")
+            session._page_url = page_url
             return m3u8_url, page_title
 
         print("ℹ️ 静态 HTML 未找到 m3u8，可能在 JS 动态加载或 iframe 中，准备使用 Playwright")
         logging.info("静态 HTML 未找到 m3u8，准备使用 Playwright")
 
+        session._page_url = page_url
+
     except Exception as e:
         logging.error("页面直读失败", exc_info=True)
         if debug:
             debug.note(f"requests 访问页面异常：{e}")
+        session._page_url = page_url
 
     # 回退：Playwright 只帮你找 m3u8，标题沿用上面静态 HTML 提取到的（可能为 None）
     m3u8_url = await get_m3u8_url_playwright(page_url, debug)

@@ -1,5 +1,3 @@
-# utils.py
-
 import re
 import json
 from bs4 import BeautifulSoup
@@ -60,6 +58,57 @@ def extract_page_title(html: str, page_url: str) -> str | None:
         return title or None
 
     return None
+
+# ===================== Referer 自动注入工具 =====================
+def get_referer_for_url(url: str) -> str:
+    """从任意 URL 提取根域名作为 Referer，如 https://cn.example.com/"""
+    parsed = urlparse(url)
+    if parsed.scheme and parsed.netloc:
+        return f"{parsed.scheme}://{parsed.netloc}/"
+    return ""
+
+
+def request_with_referer(session, method: str, url: str,
+                         page_url: str | None = None, **kwargs):
+    """
+    发送 HTTP 请求时自动注入 Referer，按优先级试探：
+      ① 不设 Referer
+      ② 页面 URL 根域名（page_url 提供时）
+      ③ 目标 URL 根域名
+
+    遇到 403/404/412 时自动降级，其他 4xx 直接返回。
+    """
+    # 构造候选列表
+    candidates = [""]  # ① 不设 Referer
+    if page_url:
+        page_root = get_referer_for_url(page_url)
+        if page_root and page_root not in candidates:
+            candidates.append(page_root)  # ② 页面根域名
+    url_root = get_referer_for_url(url)
+    if url_root and url_root not in candidates:
+        candidates.append(url_root)  # ③ 目标根域名
+
+    last_exception = None
+    for referer in candidates:
+        headers = dict(kwargs.get("headers", {}))
+        if referer:
+            headers["Referer"] = referer
+        try:
+            resp = session.request(method, url, headers=headers, **kwargs)
+            if resp.status_code < 400:
+                # 成功
+                return resp
+            if resp.status_code in (403, 404, 412):
+                last_exception = Exception(f"HTTP {resp.status_code} with Referer={referer}")
+                continue
+            # 其他 4xx（如 400/401/405）：直接返回，不重试
+            return resp
+        except Exception as e:
+            last_exception = e
+            continue
+
+    raise last_exception or Exception("所有 Referer 策略均失败")
+
 
 # ===================== STEP 0 - HTML 中提取 m3u8 =====================
 def normalize_m3u8_url(raw_url: str, page_url: str) -> str:

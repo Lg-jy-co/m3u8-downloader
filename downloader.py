@@ -1,5 +1,3 @@
-# downloader.py
-
 import os
 import asyncio
 import logging
@@ -9,15 +7,16 @@ import aiofiles
 from Crypto.Cipher import AES
 from tqdm import tqdm
 import config
-from utils import safe_name
+from utils import safe_name, request_with_referer, get_referer_for_url
 from crypto_utils import looks_like_ts, iv_from_seq
 from m3u8_resolver import resolve_to_media_m3u8, parse_m3u8_segments
 from debug_utils import DebugRecorder
 
 # ===================== STEP 3 - 下载单个分片 =====================
 async def download_ts_file(i, ts_info, save_path, session,
-                           total=0, retry = None,
-                           debug: DebugRecorder | None = None):
+                           total=0, retry=None,
+                           debug: DebugRecorder | None = None,
+                           page_url: str | None = None):
     ts_url = ts_info['url']
     key = ts_info.get('key')
     iv = ts_info.get('iv')
@@ -120,7 +119,7 @@ async def download_m3u8_video(m3u8_url, session, title='video', name='unknown',
     os.makedirs(output_dir, exist_ok=True)
     os.makedirs(merged_dir, exist_ok=True)
 
-    # 先解析到最终的“媒体 m3u8”
+    # 先解析到最终的"媒体 m3u8"
     try:
         final_m3u8_url, m3u8_text = resolve_to_media_m3u8(m3u8_url, session, debug)
     except Exception as e:
@@ -141,12 +140,44 @@ async def download_m3u8_video(m3u8_url, session, title='video', name='unknown',
             debug.note("未从最终 m3u8 解析出任意媒体分片")
         return
 
-    # 下载分片
+    # 下载分片：预试探后全局复用 Referer + Cookie
+    # 1. 读取 session 上的 page_url（由 page_parser.py 注入）
+    page_url_for_probe = getattr(session, '_page_url', None)
+
+    # 2. 预试探：用 HEAD 快速探测第一个 TS 分片，找到能用的 Referer
+    referer = ""
+    if segments:
+        probe_url = segments[0]['url']
+        try:
+            resp = request_with_referer(session, "HEAD", probe_url,
+                                        page_url=page_url_for_probe, timeout=10)
+            # 从响应中提取实际使用的 Referer
+            referer = resp.request.headers.get('Referer', '')
+            resp.close()
+        except Exception:
+            try:
+                resp = request_with_referer(session, "GET", probe_url,
+                                            page_url=page_url_for_probe,
+                                            timeout=10, stream=True)
+                referer = resp.request.headers.get('Referer', '')
+                resp.close()
+            except Exception:
+                pass
+
+    # 3. 同步 Cookie（requests 同步请求后续可能更新，复制到异步请求）
+    aio_headers = dict(config.HEADERS)
+    if referer:
+        aio_headers["Referer"] = referer
+    if hasattr(session, 'cookies') and session.cookies:
+        cookies_str = '; '.join(f'{k}={v}' for k, v in session.cookies.items())
+        if cookies_str:
+            aio_headers['Cookie'] = cookies_str
+
     connector = aiohttp.TCPConnector(limit=config.CONCURRENT_DOWNLOADS, ssl=False)
-    async with aiohttp.ClientSession(connector=connector, headers=config.HEADERS) as aio_session:
+    async with aiohttp.ClientSession(connector=connector, headers=aio_headers) as aio_session:
         tasks = [
             download_ts_file(i, seg, output_dir, aio_session,
-                             total=len(segments), debug=debug)
+                             total=len(segments), debug=debug, page_url=page_url_for_probe)
             for i, seg in enumerate(segments)
         ]
         for coro in tqdm(
@@ -188,4 +219,3 @@ async def download_m3u8_video(m3u8_url, session, title='video', name='unknown',
     except Exception:
         print("❌ ffmpeg 合并失败，请检查日志")
         logging.error("ffmpeg 合并失败", exc_info=True)
-
