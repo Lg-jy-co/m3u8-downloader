@@ -41,11 +41,15 @@ log.txt
 *.m4s
 *.m3u8
 
-# 视频缓存目录（根据你的代码，默认是 videos/）
+# 视频缓存目录
 videos/
 
-# Debug 调试目录（里面会保存页面源码和 m3u8 结构，有时含有隐私信息）
+# Debug 调试目录
 _debug/
 
 # 如果用户自己生成了配置文件（以备将来扩展）
 config.local.py
+
+# 备份文件
+*.bak
+*.backup
