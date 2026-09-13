@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>M3U8 下载器</title>
+    <style>
+        body { font-family: "Microsoft YaHei", sans-serif; margin: 30px; max-width: 800px; }
+        fieldset { margin-bottom: 15px; border: 1px solid #ccc; border-radius: 6px; padding: 10px 15px; }
+        legend { font-weight: bold; }
+        label { display: inline-block; width: 100px; }
+        input, textarea, select { width: 100%; box-sizing: border-box; margin: 4px 0; padding: 6px; }
+        .row { display: flex; gap: 10px; align-items: center; }
+        .row label { width: auto; }
+        button { padding: 8px 20px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 15px; }
+        button:hover { background: #0055aa; }
+        #log { background: #1e1e1e; color: #0f0; font-family: Consolas, monospace; padding: 15px; border-radius: 4px; min-height: 200px; white-space: pre-wrap; margin-top: 15px; }
+    </style>
+</head>
+<body>
+    <h1>🎬 M3U8 下载器 v2.0</h1>
+
+    <fieldset>
+        <legend>运行模式</legend>
+        <label><input type="radio" name="mode" value="2" checked> 模式 2：ID + URL 模板</label>
+        <label><input type="radio" name="mode" value="1"> 模式 1：剧集模式</label>
+    </fieldset>
+
+    <!-- 模式 2 参数 -->
+    <fieldset id="mode2-box">
+        <legend>模式 2 参数</legend>
+        <label>站点名：</label><input id="site_name" value="mysite">
+        <label>页面模板：</label><input id="page_template" placeholder="https://example.com/viewkey={id}">
+        <label>ID 列表：</label><textarea id="ids" rows="3" placeholder="每行一个 ID"></textarea>
+    </fieldset>
+
+    <!-- 模式 1 参数（简单版，先只支持 URL 列表） -->
+    <fieldset id="mode1-box" style="display:none">
+        <legend>模式 1 参数</legend>
+        <label>剧名：</label><input id="series_name" value="MySeries">
+        <label>每集 URL：</label><textarea id="episode_urls" rows="3" placeholder="每行一个完整 URL"></textarea>
+    </fieldset>
+
+    <fieldset>
+        <legend>通用选项</legend>
+        <label>输出目录：</label><input id="output_dir" value="VideoDownload">
+        <div class="row">
+            <label><input type="checkbox" id="debug"> 开启 Debug</label>
+        </div>
+    </fieldset>
+
+    <button onclick="startDownload()">▶ 开始下载</button>
+
+    <div id="log"></div>
+
+    <script>
+    let currentTaskId = null;
+    let currentWs = null;
+
+    document.querySelectorAll('input[name="mode"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            const mode = document.querySelector('input[name="mode"]:checked').value;
+            document.getElementById('mode1-box').style.display = mode === '1' ? 'block' : 'none';
+            document.getElementById('mode2-box').style.display = mode === '2' ? 'block' : 'none';
+        });
+    });
+
+    function appendLog(text) {
+        const log = document.getElementById('log');
+        log.textContent += text + '\n';
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function connectWs(taskId) {
+        // 关闭旧连接
+        if (currentWs) {
+            currentWs.close();
+            currentWs = null;
+        }
+        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const url = `${proto}//${location.host}/ws/tasks/${taskId}`;
+        const ws = new WebSocket(url);
+        currentWs = ws;
+
+        ws.onopen = () => appendLog(`[WS] 已连接 ${taskId}`);
+        ws.onmessage = (ev) => {
+            try {
+                const data = JSON.parse(ev.data);
+                if (data.type === 'log') {
+                    appendLog(data.message);
+                } else if (data.type === 'status') {
+                    appendLog(`[STATUS] ${data.status}` + (data.error ? ` (${data.error})` : ''));
+                }
+            } catch (e) {
+                appendLog(ev.data);
+            }
+        };
+        ws.onclose = () => appendLog(`[WS] 连接关闭`);
+        ws.onerror = (e) => appendLog(`[WS] 错误`);
+    }
+
+    async function startDownload() {
+        const log = document.getElementById('log');
+        log.textContent = '';
+        appendLog('正在提交任务...');
+
+        const mode = parseInt(document.querySelector('input[name="mode"]:checked').value);
+
+        const payload = {
+            mode: mode,
+            output_dir: document.getElementById('output_dir').value,
+            debug: document.getElementById('debug').checked,
+        };
+
+        if (mode === 2) {
+            payload.site_name = document.getElementById('site_name').value;
+            payload.page_template = document.getElementById('page_template').value;
+            payload.ids = document.getElementById('ids').value.split('\n').map(s => s.trim()).filter(Boolean);
+        } else {
+            payload.series_name = document.getElementById('series_name').value;
+            payload.episode_urls = document.getElementById('episode_urls').value.split('\n').map(s => s.trim()).filter(Boolean);
+        }
+
+        const res = await fetch('/api/tasks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        currentTaskId = data.task_id;
+        appendLog(`任务已创建：${data.task_id}，状态：${data.status}`);
+
+        // 建立 WebSocket 订阅日志
+        connectWs(data.task_id);
+    }
+</script>
+</body>
+</html>

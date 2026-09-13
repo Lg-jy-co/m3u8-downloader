@@ -11,6 +11,10 @@ beautifulsoup4>=4.13.4
 lxml>=6.0.0          # 解析速度快，BeautifulSoup 依赖它
 playwright>=1.54.0   # 用于抓取动态页面
 
+# Web 后端
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+
 # 加密与进度条
 pycryptodome>=3.23.0 # 提供 AES 解密（Crypto 库）
 tqdm>=4.67.1         # 下载进度条

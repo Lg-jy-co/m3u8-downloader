@@ -8,11 +8,11 @@ import aiohttp
 import aiofiles
 from Crypto.Cipher import AES
 from tqdm import tqdm
-import config
-from utils import safe_name, request_with_referer, get_referer_for_url
-from crypto_utils import looks_like_ts, iv_from_seq
-from m3u8_resolver import resolve_to_media_m3u8, parse_m3u8_segments
-from debug_utils import DebugRecorder
+from core import config
+from core.utils import safe_name, request_with_referer
+from core.crypto_utils import looks_like_ts, iv_from_seq
+from core.m3u8_resolver import resolve_to_media_m3u8, parse_m3u8_segments
+from core.debug_utils import DebugRecorder
 
 # ===================== STEP 3 - 下载单个分片 =====================
 async def download_ts_file(i, ts_info, save_path, session,

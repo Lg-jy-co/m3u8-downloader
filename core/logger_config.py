@@ -1,7 +1,8 @@
 # logger_config.py
 
 import logging
-import config
+from core import config
+
 
 def setup_logging():
     logging.basicConfig(

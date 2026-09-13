@@ -4,13 +4,13 @@ import sys
 import argparse
 import asyncio
 import requests
-import config
+from core import config
 import logging
-from logger_config import setup_logging
-from utils import build_page_url_from_template
-from debug_utils import DebugRecorder
-from page_parser import get_m3u8_url_smart
-from downloader import download_m3u8_video
+from core.logger_config import setup_logging
+from core.utils import build_page_url_from_template
+from core.debug_utils import DebugRecorder
+from core.page_parser import get_m3u8_url_smart
+from core.downloader import download_m3u8_video
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 

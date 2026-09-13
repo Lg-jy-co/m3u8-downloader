@@ -2,11 +2,11 @@
 
 import re
 import logging
-import config
+from core import config
 import requests
 from urllib.parse import urljoin
-from utils import request_with_referer
-from debug_utils import DebugRecorder   # 类型注解
+from core.utils import request_with_referer
+from core.debug_utils import DebugRecorder   # 类型注解
 
 # ===================== STEP 1.5 - 多层 m3u8 解析 & 清晰度选择 =====================
 def parse_master_variants(lines: list[str]) -> list[dict]:

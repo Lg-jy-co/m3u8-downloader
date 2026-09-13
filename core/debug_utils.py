@@ -2,8 +2,8 @@
 
 import os
 import logging
-import config
-from utils import safe_name
+from core import config
+from core.utils import safe_name
 
 class DebugRecorder:
     def __init__(self, site: str, episode: str):

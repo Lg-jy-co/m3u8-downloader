@@ -5,8 +5,8 @@ import logging
 import requests
 from bs4 import BeautifulSoup
 from playwright.async_api import async_playwright
-from utils import normalize_m3u8_url, extract_page_title, request_with_referer
-from debug_utils import DebugRecorder   # 为了类型注解
+from core.utils import normalize_m3u8_url, extract_page_title, request_with_referer
+from core.debug_utils import DebugRecorder   # 为了类型注解
 
 def extract_m3u8_from_html(html: str, page_url: str, debug: DebugRecorder | None = None) -> str | None:
     """
@@ -115,7 +115,13 @@ async def get_m3u8_url_smart(page_url: str, session: requests.Session,
         session._page_url = page_url
 
     # 回退：Playwright 只帮你找 m3u8，标题沿用上面静态 HTML 提取到的（可能为 None）
-    m3u8_url = await get_m3u8_url_playwright(page_url, debug)
+    try:
+        m3u8_url = await get_m3u8_url_playwright(page_url, debug)
+    except Exception as e:
+        logging.error(f"Playwright 回退失败：{e}")
+        if debug:
+            debug.note(f"Playwright 回退失败：{e}")
+        m3u8_url = None
     return m3u8_url, page_title
 
 
