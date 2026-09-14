@@ -17,8 +17,7 @@ from core.debug_utils import DebugRecorder
 # ===================== STEP 3 - 下载单个分片 =====================
 async def download_ts_file(i, ts_info, save_path, session,
                            total=0, retry=None,
-                           debug: DebugRecorder | None = None,
-                           page_url: str | None = None):
+                           debug: DebugRecorder | None = None):
     ts_url = ts_info['url']
     key = ts_info.get('key')
     iv = ts_info.get('iv')
@@ -108,7 +107,14 @@ async def download_ts_file(i, ts_info, save_path, session,
 
 
 # ===================== STEP 4 - 下载完整视频 & 合并 =====================
-async def download_m3u8_video(m3u8_url, session, title='video', name='unknown',
+async def download_m3u8_video(m3u8_url, session, title='video', name='unknown', debug=None):
+    try:
+        await _download_m3u8_video_impl(m3u8_url, session, title, name, debug)
+    except Exception as e:
+        logging.error(f"下载 {title} 失败", exc_info=True)
+        print(f"❌ 下载 {title} 失败：{e}")
+
+async def _download_m3u8_video_impl(m3u8_url, session, title='video', name='unknown',
                               debug: DebugRecorder | None = None):
     print(f"📥 开始下载：{title}")
     logging.info(f"📥 开始下载：{title}")
@@ -179,7 +185,7 @@ async def download_m3u8_video(m3u8_url, session, title='video', name='unknown',
     async with aiohttp.ClientSession(connector=connector, headers=aio_headers) as aio_session:
         tasks = [
             download_ts_file(i, seg, output_dir, aio_session,
-                             total=len(segments), debug=debug, page_url=page_url_for_probe)
+                             total=len(segments), debug=debug)
             for i, seg in enumerate(segments)
         ]
         for coro in tqdm(

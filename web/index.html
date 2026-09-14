@@ -65,9 +65,11 @@
     });
 
     function appendLog(text) {
-        const log = document.getElementById('log');
-        log.textContent += text + '\n';
-        log.scrollTop = log.scrollHeight;
+    const log = document.getElementById('log');
+    const line = document.createElement('div');
+    line.textContent = text;
+    log.appendChild(line);
+    log.scrollTop = log.scrollHeight;
     }
 
     function connectWs(taskId) {

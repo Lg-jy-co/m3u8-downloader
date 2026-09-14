@@ -50,7 +50,6 @@ def get_task(task_id: str):
 
 @app.websocket("/ws/tasks/{task_id}")
 async def ws_task_logs(websocket: WebSocket, task_id: str):
-    print(f"[WS] 收到 WebSocket 连接请求 task_id={task_id}")  # ← 加这一行
     await websocket.accept()
     await bus.subscribe(task_id, websocket)
     try:
