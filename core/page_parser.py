@@ -87,7 +87,6 @@ async def get_m3u8_url_smart(page_url: str, session: requests.Session,
             debug.note(f"requests 访问页面状态码: {status}")
 
         if status != 200:
-            print(f"❌ 页面访问失败：HTTP {status}")
             logging.error(f"页面访问失败：{page_url} HTTP {status}")
             session._page_url = page_url
             return None, None
@@ -98,12 +97,10 @@ async def get_m3u8_url_smart(page_url: str, session: requests.Session,
         # 再找 m3u8
         m3u8_url = extract_m3u8_from_html(html, page_url, debug)
         if m3u8_url:
-            print("✅ HTML 中已找到 m3u8，不用执行 Playwright！")
             logging.info("HTML 中已找到 m3u8，不用执行 Playwright！")
             session._page_url = page_url
             return m3u8_url, page_title
 
-        print("ℹ️ 静态 HTML 未找到 m3u8，可能在 JS 动态加载或 iframe 中，准备使用 Playwright")
         logging.info("静态 HTML 未找到 m3u8，准备使用 Playwright")
 
         session._page_url = page_url
@@ -127,7 +124,6 @@ async def get_m3u8_url_smart(page_url: str, session: requests.Session,
 
 async def get_m3u8_url_playwright(page_url: str, debug: DebugRecorder | None = None) -> str | None:
     async with async_playwright() as p:
-        print(f"🕵️ 使用 Playwright 打开页面：{page_url}")
         logging.info(f"🕵️ 使用 Playwright 打开页面：{page_url}")
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context()
@@ -164,7 +160,6 @@ async def get_m3u8_url_playwright(page_url: str, debug: DebugRecorder | None = N
             await page.goto(page_url, timeout=60000)
             await page.wait_for_timeout(5000)
         except Exception as e:
-            print(f"❌ Playwright 打开页面失败：{e}")
             logging.error("Playwright 打开页面失败", exc_info=True)
             if debug:
                 debug.note(f"Playwright 打开页面失败：{e}")
@@ -173,7 +168,6 @@ async def get_m3u8_url_playwright(page_url: str, debug: DebugRecorder | None = N
 
         # 1) 看网络请求中是否有 m3u8
         if found_url:
-            print(f"✅ Playwright 响应中捕获 m3u8: {found_url}")
             logging.info(f"✅ Playwright 响应中捕获 m3u8: {found_url}")
             if debug:
                 debug.note(f"Playwright 网络中捕获 m3u8: {found_url}")
@@ -189,7 +183,6 @@ async def get_m3u8_url_playwright(page_url: str, debug: DebugRecorder | None = N
                 match = re.search(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', content)
                 if match:
                     url = match.group(1)
-                    print(f"✅ Playwright HTML 中找到 m3u8: {url}")
                     logging.info(f"✅ Playwright HTML 中找到 m3u8: {url}")
                     if debug:
                         debug.note(f"Playwright frame HTML 中捕获 m3u8: {url}")
@@ -203,7 +196,6 @@ async def get_m3u8_url_playwright(page_url: str, debug: DebugRecorder | None = N
             debug.save_text("02_playwright_frames.html", "\n".join(all_html))
             debug.note("Playwright 未在 HTML/网络中找到 m3u8，可能需要用户交互或使用非 HLS 协议")
 
-        print("❌ Playwright 找不到 m3u8，可能需要手动分析或站点使用其他协议")
         logging.info("❌ Playwright 找不到 m3u8")
         await browser.close()
         return None

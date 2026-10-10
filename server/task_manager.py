@@ -10,6 +10,7 @@ import sys
 from core.logger_config import setup_logging
 
 tasks = {}
+_background_tasks: set[asyncio.Task] = set()
 _main_loop: asyncio.AbstractEventLoop | None = None
 
 
@@ -134,9 +135,9 @@ async def _run_download(task_id: str, req):
             tasks[task_id]["error"] = str(e)
             await bus.publish(task_id, {"type": "status", "status": "failed", "error": str(e)})
 
-    asyncio.create_task(_cleanup_later(task_id))    # ← 这行在 async with 外面
-
-_background_tasks: set[asyncio.Task] = set()
+    t = asyncio.create_task(_cleanup_later(task_id))
+    _background_tasks.add(t)
+    t.add_done_callback(_background_tasks.discard)
 
 async def _cleanup_later(task_id: str, delay: int = 300):
     """5 分钟后清理任务，避免内存累积"""

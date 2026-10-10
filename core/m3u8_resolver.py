@@ -258,13 +258,16 @@ def parse_m3u8_segments(m3u8_text: str, base_url: str, session: requests.Session
                     try:
                         key = get_key_bytes(uri_m.group(1))
                     except Exception:
-                        print("❌ KEY 下载失败，后续分片将不解密")
                         logging.error("KEY 下载失败", exc_info=True)
                         key = None
 
                 if iv_m:
                     iv_hex = iv_m.group(1).zfill(32)
+                    if len(iv_hex) != 32:
+                        logging.error(f"非法 IV（长度 {len(iv_hex)}，应为 32 位 hex）：{iv_hex}")
+                        raise ValueError(f"非法 IV：{iv_hex}")
                     iv = bytes.fromhex(iv_hex)
+
                 else:
                     iv = None
                 continue

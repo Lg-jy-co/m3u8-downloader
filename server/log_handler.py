@@ -24,7 +24,7 @@ class WebSocketLogHandler(logging.Handler):
                 self.main_loop,
             )
         except Exception:
-            pass
+            self.handleError(record)
 
 
 def make_ws_handler(task_id: str, main_loop) -> WebSocketLogHandler:

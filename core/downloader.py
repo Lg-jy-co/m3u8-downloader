@@ -100,7 +100,6 @@ async def download_ts_file(i, ts_info, save_path, session,
             if attempt < retry - 1:
                 print(f"🔁 [{i + 1}] 重试 {attempt + 1}/{retry}（原因：{e}）")
             else:
-                print(f"❌ [{i + 1}] 下载失败 {ts_url}：{e}")
                 logging.error(f"TS 分片下载失败：{ts_url}，{e}")
                 if debug:
                     debug.note(f"TS 分片下载失败：{ts_url}，{e}")
@@ -112,11 +111,9 @@ async def download_m3u8_video(m3u8_url, session, title='video', name='unknown', 
         await _download_m3u8_video_impl(m3u8_url, session, title, name, debug)
     except Exception as e:
         logging.error(f"下载 {title} 失败", exc_info=True)
-        print(f"❌ 下载 {title} 失败：{e}")
 
 async def _download_m3u8_video_impl(m3u8_url, session, title='video', name='unknown',
                               debug: DebugRecorder | None = None):
-    print(f"📥 开始下载：{title}")
     logging.info(f"📥 开始下载：{title}")
 
     safe_title = safe_name(title)
@@ -131,7 +128,6 @@ async def _download_m3u8_video_impl(m3u8_url, session, title='video', name='unkn
     try:
         final_m3u8_url, m3u8_text = resolve_to_media_m3u8(m3u8_url, session, debug)
     except Exception as e:
-        print(f"❌ 解析 m3u8 失败：{e}")
         logging.error("解析 m3u8 失败", exc_info=True)
         return
 
@@ -142,8 +138,7 @@ async def _download_m3u8_video_impl(m3u8_url, session, title='video', name='unkn
 
     segments = parse_m3u8_segments(m3u8_text, base_url, session)
     if not segments:
-        print("❌ 未解析到任何分片，请检查 m3u8")
-        logging.error("未解析到任何分片")
+        logging.error("未解析到任何分片，请检查 m3u8")
         if debug:
             debug.note("未从最终 m3u8 解析出任意媒体分片")
         return
@@ -222,8 +217,6 @@ async def _download_m3u8_video_impl(m3u8_url, session, title='video', name='unkn
             'ffmpeg', '-y', '-f', 'concat', '-safe', '0', '-i', file_list,
             '-c', 'copy', out_file
         ], check=True)
-        print(f"✅ 合并完成，输出文件：{out_file}")
         logging.info(f"合并完成：{out_file}")
     except Exception:
-        print("❌ ffmpeg 合并失败，请检查日志")
         logging.error("ffmpeg 合并失败", exc_info=True)
